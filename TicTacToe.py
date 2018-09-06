@@ -1,5 +1,8 @@
 import random
 
+from Tkinter import *
+import tkFont
+
 X=0
 O=1
 BLANK=2
@@ -12,6 +15,133 @@ O_WIN=1
 DRAW=2
 ON_GOING=3
 UNKNOWN=666
+
+class MainApp(Tk):
+
+    def __init__(self, *args, **kwargs):
+        Tk.__init__(self, *args, **kwargs)
+
+        container=Frame(self)
+        container.pack(side="top", fill="both", expand=True)
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        self.frames={}
+        page_name=simpleapp_tk.__name__
+        frame=simpleapp_tk(parent=container, controller=self)
+        self.frames[page_name]=frame
+        frame.grid(row=0, column=0, sticky="nsew")
+
+        self.show_frame("simpleapp_tk")
+
+    def show_frame(self, page_name):
+        frame=self.frames[page_name]
+        frame.update
+        frame.tkraise()
+
+class simpleapp_tk(Frame):
+    def __init__(self, parent, controller):
+        Frame.__init__(self, parent)
+        self.controller=controller
+        self.parent=parent
+        self.game=BoardClass(3)
+
+        self.grid()
+
+        helv36=tkFont.Font(family='Helvetica', size=36, weight='bold')
+        w=3
+
+        self.player1Label=Label(self, text="Player1: ")
+        self.player1Label.grid(column=0,row=0)
+
+        self.var1=StringVar(self)
+        self.var1.set("Human")
+        options=["Human", "Computer"]
+        self.player1DropDown=OptionMenu(self, self.var1, *options)
+        self.player1DropDown.grid(column=1,row=0)
+
+
+        self.player1Labe2=Label(self, text="Player2: ")
+        self.player1Labe2.grid(column=0,row=1)
+
+        self.var2=StringVar(self)
+        self.var2.set("Human")
+        self.player2DropDown=OptionMenu(self, self.var2, *options)
+        self.player2DropDown.grid(column=1,row=1)
+
+        action=lambda: self.newGame()
+        self.newGameButton=Button(self, text="New Game", command=action)
+        self.newGameButton.grid(column=2, row=0, rowspan=2)
+        
+
+        self.buttons=['?']*3
+        self.btn_text=['?']*3
+        for i in range(3):
+            self.buttons[i]=['?']*3
+            self.btn_text[i]=['?']*3
+
+        for row in range(3):
+            for col in range(3):
+                self.btn_text[row][col]=StringVar() 
+                action=lambda x=row, y=col: self.onButtonClick(x, y)
+                self.buttons[row][col]=Button(self, textvariable=self.btn_text[row][col], width=w, font=helv36, command=action)
+                self.buttons[row][col].grid(column=col, row=row+2)
+
+        self.gameStateLabelVar=StringVar()
+        self.gameStateLabel=Label(self, textvariable=self.gameStateLabelVar, font=helv36, anchor="w")
+        self.gameStateLabel.grid(column=0, row=5, columnspan=3, sticky='EW')
+        self.gameStateLabelVar.set(u"")
+
+        self.update()
+
+    def makeComputerMove(self):
+        (move, temp_game_state)=self.game.getMoveComputer(self.game.current_player)
+        self.game.updateGame(move, self.game.current_player)
+        self.btn_text[move[0]][move[1]].set(" "+playerNumToStr(self.game.current_player)+" ")
+        self.game.current_player=switchPlayer(self.game.current_player)
+        game_state=self.game.getGameState()
+
+        return game_state
+
+    def onButtonClick(self, row, col):
+        game_state=self.game.getGameState()
+        if game_state==ON_GOING and self.game.board[row][col]==BLANK and self.isCurrentPlayerHuman():
+            self.game.board[row][col]=self.game.current_player
+            self.btn_text[row][col].set(" "+playerNumToStr(self.game.current_player)+" ")
+            self.game.current_player=switchPlayer(self.game.current_player)
+        game_state=self.game.getGameState()
+        if game_state==ON_GOING and self.isCurrentPlayerComputer():
+            game_state=self.makeComputerMove()
+
+        if game_state!=ON_GOING:
+            self.gameStateLabelVar.set(printResult(game_state))
+
+    def newGame(self):
+        self.game.current_player=X
+        self.gameStateLabelVar.set("")
+        for row in range(3):
+            for col in range(3):
+                self.btn_text[row][col].set("   ")
+                self.game.board[row][col]=BLANK
+
+        if self.var1.get()=="Computer" and self.var2.get()=="Computer":
+            self.computerVersusComputer()
+
+        if self.var1.get()=="Computer" and self.var2.get()=="Human":
+            self.makeComputerMove()
+
+    def isCurrentPlayerHuman(self):
+        return (self.game.current_player==X and self.var1.get()=="Human") or (self.game.current_player==O and self.var2.get()=="Human")
+
+    def isCurrentPlayerComputer(self):
+        return not self.isCurrentPlayerHuman()
+
+    def computerVersusComputer(self):
+        game_state=self.game.getGameState()
+        while game_state==ON_GOING:
+            game_state=self.makeComputerMove()
+
+        self.gameStateLabelVar.set(printResult(game_state))
 
 def playerNumToStr(num):
     if num==X:
@@ -45,6 +175,7 @@ def isStrInt(num):
 
 class BoardClass:
     def __init__(self, size):
+        self.current_player=X
         self.board=['?']*size
         self.players=[HUMAN, HUMAN]
         for idx in range(size):
@@ -290,15 +421,15 @@ def printResult(game_state):
     What is the state of the game?
     """
     if game_state==X_WIN:
-        print "X won the game"
+        return "X WON!"
     elif game_state==O_WIN:
-        print "O won the game"
+        return "O WON!"
     elif game_state==DRAW:
-        print "The game is a draw"
+        return "DRAW"
     elif game_state==ON_GOING:
-        print "The game is still ongoing"
+        return "The game is still ongoing"
     else:
-        print "I don't know what is going on"
+        return "I don't know what is going on"
 
 def is_number(num):
     try:
@@ -313,10 +444,8 @@ def strToBool(s):
 def printIntro():
     intro="""
     **********************************************************
-    *This is an ASCII version of TicTacToe.                  *
+    *Win by getting three in a row.                          *
     *Both X and O can be either a human or a computer.       *
-    *To enter your move type the column number of your move, *
-    *a space, and the row number of your move.               *
     *                                                        *
     *Created by Jouko Virtanen in 2018                       *
     **********************************************************
@@ -325,11 +454,16 @@ def printIntro():
 
 printIntro()
 
-while True:
-    game=BoardClass(3)
-    game.getPlayers()
-    game.playGame()
-    play_again=raw_input("Play again? (Y/N) ")
-    if not strToBool(play_again):
-        break
+#while True:
+#    game=BoardClass(3)
+#    game.getPlayers()
+#    game.playGame()
+#    play_again=raw_input("Play again? (Y/N) ")
+#    if not strToBool(play_again):
+#        break
 
+if __name__=="__main__":
+    app=MainApp()
+    app.title('TicTacToe')
+    app.geometry('300x450')
+    app.mainloop()
